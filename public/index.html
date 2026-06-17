@@ -16,6 +16,7 @@
     .msg { background: #1e293b; margin: 8px 0; padding: 10px; border-radius: 10px; }
     .system { color: #facc15; font-style: italic; }
     .private { border-left: 4px solid #f472b6; }
+    .sala-badge { color: #38bdf8; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -26,6 +27,11 @@
     <div class="card" id="registro">
       <h2>Registro</h2>
       <input id="nombre" placeholder="Escribe tu nombre" />
+      <select id="salaSeleccionada">
+        <option value="general">General</option>
+        <option value="soporte">Soporte</option>
+        <option value="juegos">Juegos</option>
+      </select>
       <button onclick="registrar()">Entrar al chat</button>
     </div>
 
@@ -36,12 +42,12 @@
       </div>
 
       <div class="card">
-        <h2>Mensajes</h2>
+        <h2>Mensajes - <span id="salaActiva" class="sala-badge"></span></h2>
         <div id="mensajes"></div>
 
-        <h3>Mensaje global</h3>
-        <input id="mensaje" placeholder="Escribe un mensaje para todos" />
-        <button onclick="enviarGlobal()">Enviar a todos</button>
+        <h3>Mensaje de sala</h3>
+        <input id="mensaje" placeholder="Escribe un mensaje para la sala" />
+        <button onclick="enviarGlobal()">Enviar a la sala</button>
 
         <h3>Mensaje privado</h3>
         <select id="destino"></select>
@@ -55,15 +61,23 @@
   <script>
     const socket = io();
     let miNombre = "";
+    let miSala = "";
 
     function registrar() {
       miNombre = document.getElementById("nombre").value.trim();
+      miSala = document.getElementById("salaSeleccionada").value;
+
       if (!miNombre) {
         alert("Escribe tu nombre");
         return;
       }
 
-      socket.emit("registrarUsuario", miNombre);
+      // envía un objeto con el nombre y la sala elegida
+      socket.emit("registrarUsuario", { nombre: miNombre, sala: miSala });
+      
+      // Actualiza visualmente el título de la sala en la interfaz
+      document.getElementById("salaActiva").textContent = miSala.toUpperCase();
+
       document.getElementById("registro").style.display = "none";
       document.getElementById("chat").style.display = "grid";
     }
@@ -105,7 +119,8 @@
 
       usuarios.forEach((usuario) => {
         const li = document.createElement("li");
-        li.textContent = `${usuario.nombre} (${usuario.id})`;
+        // muestra la sala al lado de cada usuario en la lista global
+        li.textContent = `${usuario.nombre} [${usuario.sala}]`;
         lista.appendChild(li);
 
         if (usuario.nombre !== miNombre) {

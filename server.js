@@ -20,24 +20,37 @@ app.get("/health", (req, res) => {
 io.on("connection", (socket) => {
   console.log("Usuario conectado:", socket.id);
 
-  socket.on("registrarUsuario", (nombre) => {
+  // recibe el parámetro 'sala'
+  socket.on("registrarUsuario", (data) => {
+    const sala = data.sala || "general";
+    
     const usuario = {
       id: socket.id,
-      nombre: nombre || "Anónimo"
+      nombre: data.nombre || "Anónimo",
+      sala: sala // Guardamos la sala en los metadatos del usuario
     };
 
     usuarios.set(socket.id, usuario);
 
+    // Unimos el socket a la sala específica
+    socket.join(sala);
+
     io.emit("usuariosActualizados", Array.from(usuarios.values()));
-    io.emit("mensajeSistema", `${usuario.nombre} se conectó`);
+    
+    // El mensaje del sistema se envía únicamente a los integrantes de esa sala
+    io.to(sala).emit("mensajeSistema", `${usuario.nombre} se conectó a la sala [${sala}]`);
   });
 
+  // envía el mensaje global únicamente a la sala actual del usuario
   socket.on("mensajeGlobal", (data) => {
-    io.emit("mensajeGlobal", {
-      usuario: data.usuario,
-      mensaje: data.mensaje,
-      hora: new Date().toLocaleTimeString()
-    });
+    const usuario = usuarios.get(socket.id);
+    if (usuario) {
+      io.to(usuario.sala).emit("mensajeGlobal", {
+        usuario: data.usuario,
+        mensaje: data.mensaje,
+        hora: new Date().toLocaleTimeString()
+      });
+    }
   });
 
   socket.on("mensajePrivado", (data) => {
@@ -55,7 +68,7 @@ io.on("connection", (socket) => {
     io.emit("usuariosActualizados", Array.from(usuarios.values()));
 
     if (usuario) {
-      io.emit("mensajeSistema", `${usuario.nombre} se desconectó`);
+      io.to(usuario.sala).emit("mensajeSistema", `${usuario.nombre} se desconectó`);
     }
 
     console.log("Usuario desconectado:", socket.id);
